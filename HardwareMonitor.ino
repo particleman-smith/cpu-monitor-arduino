@@ -27,6 +27,11 @@ uint32_t cpuTemp = 0;
 uint32_t gpuValue = 0;
 uint32_t gpuTemp = 0;
 
+uint32_t colorBlack = cpuLeds.Color(0, 0, 0);
+uint32_t colorBlue = cpuLeds.Color(0, 0, 255);
+uint32_t colorRed = cpuLeds.Color(255, 0, 0);
+
+
 char currentRead; // Current character being read from serial
 char receivedBuffer[BUFFER_SIZE]; // Temporary concatenated string of characters
 uint8_t currentBufferPos = 0;
@@ -36,6 +41,7 @@ void setup() {
   Serial.begin(9600);
   clearBuffer();
   cpuLeds.begin();
+  setAllLeds(colorBlack);
   cpuLeds.show();
 }
 
@@ -115,14 +121,14 @@ void displayCpuUsage(uint32_t cpu) {
       cpuLeds.setPixelColor(i, cpuLeds.Color(30, 30, 30));
     }
     else {
-      cpuLeds.setPixelColor(i, cpuLeds.Color(0, 0, 0));
+      cpuLeds.setPixelColor(i, colorBlack);
     }
   }
   cpuLeds.show();
 }
 
 void setAllLeds(uint32_t color) {
-  for(uint16_t i=0; i<cpuLeds.numPixels(); i++) {
+  for(uint16_t i = 0; i < cpuLeds.numPixels(); i++) {
       cpuLeds.setPixelColor(i, color);
   }
   cpuLeds.show();
