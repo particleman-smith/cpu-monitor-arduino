@@ -4,75 +4,107 @@
 #define CPU_LED_PIN    2
 #define CPU_LED_COUNT  12
 
-#define READ_CPU_VAL   'C'
-#define READ_CPU_TEMP  'c'
-#define READ_GPU_VAL   'G'
-#define READ_GPU_TEMP  'g'
-#define READ_TERM      '$'
+#define READ_CPU_VAL_CHAR   'C'
+#define READ_CPU_TEMP_CHAR  'c'
+#define READ_GPU_VAL_CHAR   'G'
+#define READ_GPU_TEMP_CHAR  'g'
+#define READ_TERM_CHAR      '$'
+
+#define BUFFER_SIZE  4
+
+enum read_state {
+  NONE,
+  READ_CPU_VAL,
+  READ_CPU_TEMP,
+  READ_GPU_VAL,
+  READ_GPU_TEMP
+};
 
 Adafruit_NeoPixel cpuLeds = Adafruit_NeoPixel(CPU_LED_COUNT, CPU_LED_PIN, NEO_GRB + NEO_KHZ800);
 
-// Used for receiving serial data
-char currentRead;
-String receivedData;
 uint32_t cpuValue = 0;
 uint32_t cpuTemp = 0;
+uint32_t gpuValue = 0;
+uint32_t gpuTemp = 0;
+
+char currentRead; // Current character being read from serial
+char receivedBuffer[BUFFER_SIZE]; // Temporary concatenated string of characters
+uint8_t currentBufferPos = 0;
+read_state currentReadState; // Determines which variable the buffer will save the data
 
 void setup() {
   Serial.begin(9600);
-  cpuValue = '0';
+  clearBuffer();
   cpuLeds.begin();
   cpuLeds.show();
 }
 
 void loop() {
+
   while (Serial.available() > 0) {
     char received = Serial.read();
-
-    /*if (received == READ_CPU_VAL) {
-      currentRead = READ_CPU_VAL;
-      receivedData = "";
-    }
-    else if (received == READ_CPU_TEMP) {
-      currentRead == READ_CPU_TEMP;
-      receivedData = "";
-    }
-    else if (received == READ_TERM) {
-      receivedData = "";
-    }
-    else {
-      switch (currentRead) {
-        case READ_CPU_VAL:
-          cpuValue += received;
-          break;
-        case READ_CPU_TEMP:
-          cpuTemp += received;
-          break;
-      }
-    }*/
     
-    if (received == READ_TERM)
-    {
-      cpuValue = receivedData.toInt();
-      Serial.println(receivedData);
-      receivedData = "";
+    // Handle signal characters
+    if (received == READ_CPU_VAL_CHAR) { // Begin CPU %
+      saveDataFromBuffer();
+      currentReadState = READ_CPU_VAL;
     }
-    else {
-      receivedData += received;
+    else if (received == READ_CPU_TEMP_CHAR) { // Begin CPU Temp
+      saveDataFromBuffer();
+      currentReadState = READ_CPU_TEMP;
+    }
+    else if (received == READ_GPU_VAL_CHAR) { // Begin GPU %
+      saveDataFromBuffer();
+      currentReadState = READ_GPU_VAL;
+    }
+    else if (received == READ_GPU_TEMP_CHAR) { // Begin GPU Temp
+      saveDataFromBuffer();
+      currentReadState = READ_GPU_TEMP;
+    }
+    else if (received == READ_TERM_CHAR) { // End of seq
+      saveDataFromBuffer();
+      currentReadState = NONE;
+      break; // Stop reading from serial
+    }
+    else { // Any other character: save to buffer
+      receivedBuffer[currentBufferPos] = received;
+      currentBufferPos++;
     }
   }
-
-  /*if (cpuValue == 0) {
-    setAllLeds(cpuLeds.Color(0, 0, 0));
-  }
-  else if (cpuValue == 1) {
-    setAllLeds(cpuLeds.Color(0, 255, 0));
-  }
-  else if (cpuValue == 25) {
-    setAllLeds(cpuLeds.Color(255, 255, 255));
-  }*/
 
   displayCpuUsage(cpuValue);
+}
+
+void saveDataFromBuffer() {
+  String receivedStr = String(receivedBuffer);
+  
+  if (currentReadState == READ_CPU_VAL) {
+    Serial.print("CPU %: ");
+    cpuValue = receivedStr.toInt();
+  }
+  else if (currentReadState == READ_CPU_TEMP) {
+    Serial.print("CPU Temp: ");
+    cpuTemp = receivedStr.toInt();
+  }
+  else if (currentReadState == READ_GPU_VAL) {
+    Serial.print("GPU %: ");
+    gpuValue = receivedStr.toInt();
+  }
+  else if (currentReadState == READ_GPU_TEMP) {
+    Serial.print("GPU Temp: ");
+    gpuTemp = receivedStr.toInt();
+  }
+
+  Serial.println(receivedStr);
+  
+  clearBuffer();
+}
+
+void clearBuffer() {
+  for (uint8_t i = 0; i < BUFFER_SIZE; i++) {
+    receivedBuffer[i] = '\0';
+  }
+  currentBufferPos = 0;
 }
 
 void displayCpuUsage(uint32_t cpu) {
