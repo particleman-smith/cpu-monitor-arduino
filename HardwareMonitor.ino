@@ -28,9 +28,8 @@ uint32_t gpuValue = 0;
 uint32_t gpuTemp = 0;
 
 uint32_t colorBlack = cpuLeds.Color(0, 0, 0);
-uint32_t colorBlue = cpuLeds.Color(0, 0, 255);
-uint32_t colorRed = cpuLeds.Color(255, 0, 0);
-
+uint32_t colorBlue = cpuLeds.Color(0, 0, 100);
+uint32_t colorRed = cpuLeds.Color(100, 0, 0);
 
 char currentRead; // Current character being read from serial
 char receivedBuffer[BUFFER_SIZE]; // Temporary concatenated string of characters
@@ -118,13 +117,48 @@ void displayCpuUsage(uint32_t cpu) {
   uint32_t maxLed = (uint32_t)(cpuLeds.numPixels() * ledMultiplier - 0.5f);
   for (uint16_t i = 0; i < cpuLeds.numPixels(); i++) {
     if (i <= maxLed) {
-      cpuLeds.setPixelColor(i, cpuLeds.Color(30, 30, 30));
+      cpuLeds.setPixelColor(i, lerpColor(colorBlue, colorRed, (float)(cpuTemp * 0.01)));
     }
     else {
       cpuLeds.setPixelColor(i, colorBlack);
     }
   }
   cpuLeds.show();
+}
+
+uint32_t lerpColor(uint32_t colorA, uint32_t colorB, float t) {
+  uint8_t aRed, aGreen, aBlue;
+  uint8_t bRed, bGreen, bBlue;
+  uint8_t cRed, cGreen, cBlue;
+  
+  aRed = red(colorA);
+  aGreen = green(colorA);
+  aBlue = blue(colorA);
+
+  bRed = red(colorB);
+  bGreen = green(colorB);
+  bBlue = blue(colorB);
+
+  cRed = (t * bRed + 0.5) + ((1 - t) * aRed + 0.5);
+  cGreen = (t * bGreen + 0.5) + ((1 - t) * aGreen + 0.5);
+  cBlue = (t * bBlue + 0.5) + ((1 - t) * aBlue + 0.5);
+  
+  return cpuLeds.Color(cRed, cGreen, cBlue);
+}
+
+// Returns the Red component of a 32-bit color
+uint8_t red(uint32_t color) {
+    return (color >> 16) & 0xFF;
+}
+
+// Returns the Green component of a 32-bit color
+uint8_t green(uint32_t color) {
+    return (color >> 8) & 0xFF;
+}
+ 
+// Returns the Blue component of a 32-bit color
+uint8_t blue(uint32_t color) {
+    return color & 0xFF;
 }
 
 void setAllLeds(uint32_t color) {
