@@ -4,13 +4,21 @@
 #define CPU_LED_PIN    2
 #define CPU_LED_COUNT  12
 
+// Determines the rotation of the neopixel ring (the starting led)
+#define CPU_LEDS_OFFSET   0
+
+// Minimum and maximum CPU temperature range used for determining LED color
+#define CPU_TEMP_MIN    40
+#define CPU_TEMP_MAX    90
+
+// Flags to determine what information is being sent by the driver software via serial
 #define READ_CPU_VAL_CHAR   'C'
 #define READ_CPU_TEMP_CHAR  'c'
 #define READ_GPU_VAL_CHAR   'G'
 #define READ_GPU_TEMP_CHAR  'g'
 #define READ_TERM_CHAR      '$'
 
-#define BUFFER_SIZE  4
+#define BUFFER_SIZE  4 // Buffer used for receiving strings via serial
 
 enum read_state {
   NONE,
@@ -32,8 +40,8 @@ uint32_t colorBlue = cpuLeds.Color(0, 0, 100);
 uint32_t colorRed = cpuLeds.Color(100, 0, 0);
 
 char currentRead; // Current character being read from serial
-char receivedBuffer[BUFFER_SIZE]; // Temporary concatenated string of characters
-uint8_t currentBufferPos = 0;
+char receivedBuffer[BUFFER_SIZE]; // Temporary concatenated string of characters received via serial
+uint8_t currentBufferPos = 0; // Tracks the index of the receivedBuffer
 read_state currentReadState; // Determines which variable the buffer will save the data
 
 void setup() {
@@ -77,7 +85,7 @@ void loop() {
     }
   }
 
-  displayCpuUsage(cpuValue);
+  displayCpuUsage();
 }
 
 void saveDataFromBuffer() {
@@ -112,12 +120,28 @@ void clearBuffer() {
   currentBufferPos = 0;
 }
 
-void displayCpuUsage(uint32_t cpu) {
-  float ledMultiplier = cpu * 0.01;
+void displayCpuUsage() {
+  // Calculate number of LEDs to turn on
+  float ledMultiplier = cpuValue * 0.01;
   uint32_t maxLed = (uint32_t)(cpuLeds.numPixels() * ledMultiplier - 0.5f);
+
+  // Calculate the LED color
+  // (linear interpolation [lerp] of the min color to the max color based on the current cpu
+  // temperature between the minimum and maximum temperature range)
+  
+  // t is the percentage of blue to red used for lerp
+  float t = 0; // Default 0: Cpu temp is at or below the minimum (100% blue, 0% red)
+  if (cpuTemp >= CPU_TEMP_MAX) { // Cpu temp is at or above the maximum
+    t = 1; // 0% blue, 100% red
+  }
+  else if (cpuTemp > CPU_TEMP_MIN) { // Cpu temp is within the minimum and maximum range
+    // Calculate t for the temperature between the minimum and the maximum
+    t = (float)(cpuTemp - CPU_TEMP_MIN) / (float)(CPU_TEMP_MAX - CPU_TEMP_MIN);
+  }
+  
   for (uint16_t i = 0; i < cpuLeds.numPixels(); i++) {
     if (i <= maxLed) {
-      cpuLeds.setPixelColor(i, lerpColor(colorBlue, colorRed, (float)(cpuTemp * 0.01)));
+      cpuLeds.setPixelColor(i, lerpColor(colorBlue, colorRed, t));
     }
     else {
       cpuLeds.setPixelColor(i, colorBlack);
